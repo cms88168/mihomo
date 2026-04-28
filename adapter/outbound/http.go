@@ -39,6 +39,8 @@ type HttpOption struct {
 	Certificate    string            `proxy:"certificate,omitempty"`
 	PrivateKey     string            `proxy:"private-key,omitempty"`
 	Headers        map[string]string `proxy:"headers,omitempty"`
+	AddPatch       string            `proxy:"add-patch,omitempty"`
+	DelHost        bool              `proxy:"del-host,omitempty"`
 }
 
 // StreamConnContext implements C.ProxyAdapter
@@ -91,7 +93,11 @@ func (h *Http) shakeHandContext(ctx context.Context, c net.Conn, metadata *C.Met
 	}
 
 	addr := metadata.RemoteAddress()
-	HeaderString := "CONNECT " + addr + " HTTP/1.1\r\n"
+	HeaderString := "CONNECT " + addr
+	if h.option.AddPatch != "" {
+		HeaderString += h.option.AddPatch
+	}
+	HeaderString += " HTTP/1.1\r\n"
 	tempHeaders := map[string]string{
 		"Host":             addr,
 		"User-Agent":       "Go-http-client/1.1",
@@ -100,6 +106,11 @@ func (h *Http) shakeHandContext(ctx context.Context, c net.Conn, metadata *C.Met
 
 	for key, value := range h.option.Headers {
 		tempHeaders[key] = value
+	}
+
+	if h.option.DelHost {
+		delete(tempHeaders, "Host")
+		delete(tempHeaders, "User-Agent")
 	}
 
 	if h.user != "" && h.pass != "" {
