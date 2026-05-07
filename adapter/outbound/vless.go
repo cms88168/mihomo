@@ -579,6 +579,13 @@ func NewVless(option VlessOption) (*Vless, error) {
 			ReuseConfig:          reuseCfg,
 		}
 
+		// When TLS/Reality is disabled, default to HTTP/1.1 instead of H2.
+		// Explicit ALPN settings (h3, http/1.1) are still respected when TLS is enabled.
+		xhttpALPN := v.option.ALPN
+		if len(xhttpALPN) == 0 && !v.option.TLS && v.realityConfig == nil {
+			xhttpALPN = []string{"http/1.1"}
+		}
+
 		makeTransport := func() http.RoundTripper {
 			return xhttp.NewTransport(
 				func(ctx context.Context) (net.Conn, error) {
@@ -624,7 +631,7 @@ func NewVless(option VlessOption) (*Vless, error) {
 					}
 					return quicConn, nil
 				},
-				v.option.ALPN,
+				xhttpALPN,
 				hKeepAlivePeriod,
 			)
 		}
@@ -652,6 +659,10 @@ func NewVless(option VlessOption) (*Vless, error) {
 				if err != nil {
 					return nil, err
 				}
+			}
+			// When TLS/Reality is disabled for download, default to HTTP/1.1 instead of H2.
+			if len(downloadALPN) == 0 && !downloadTLS && downloadRealityCfg == nil {
+				downloadALPN = []string{"http/1.1"}
 			}
 			downloadSkipCertVerify := lo.FromPtrOr(ds.SkipCertVerify, v.option.SkipCertVerify)
 			downloadFingerprint := lo.FromPtrOr(ds.Fingerprint, v.option.Fingerprint)
